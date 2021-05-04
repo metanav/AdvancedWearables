@@ -1,0 +1,13 @@
+&i2c1 {
+    compatible = "nordic,nrf-twim";
+    status = "okay";
+    sda-pin = < 31 >;
+    scl-pin = < 29 >;
+    clock-frequency = <I2C_BITRATE_STANDARD>;  
+	
+    adxl345@53 {
+	compatible = "adi,adxl345";
+	reg = < 0x53 >;
+	label = "ADXL345";
+    };
+};
