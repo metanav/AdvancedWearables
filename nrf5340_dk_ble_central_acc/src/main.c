@@ -11,6 +11,12 @@
 #include <bluetooth/gatt.h>
 #include <sys/byteorder.h>
 
+#include <device.h>
+#include <drivers/display.h>
+#include <lvgl.h>
+#include <stdio.h>
+#include <string.h>
+
 #define ACC_SERVICE_UUID 0xd4, 0x86, 0x48, 0x24, 0x54, 0xB3, 0x43, 0xA1, \
                      0xBC, 0x20, 0x97, 0x8F, 0xC3, 0x76, 0xC2, 0x75
 
@@ -27,28 +33,68 @@ static struct bt_conn *default_conn;
 static struct bt_uuid_128 uuid = BT_UUID_INIT_128(0);
 static struct bt_gatt_discover_params discover_params;
 static struct bt_gatt_subscribe_params subscribe_params;
+lv_obj_t *data_label;
+
+struct chart_type {
+    lv_obj_t *chart_obj;
+    lv_chart_series_t *series[3]; 
+};
+
+// Styles
+lv_style_t style_label, style_label_value;
+
+
+// Fonts
+LV_FONT_DECLARE(arial_20bold);
+LV_FONT_DECLARE(calibri_20b);
+LV_FONT_DECLARE(calibri_20);
+LV_FONT_DECLARE(calibri_24b);
+LV_FONT_DECLARE(calibri_32b);
+
+static struct bt_gatt_exchange_params exchange_params;
+
+K_MBOX_DEFINE(my_mailbox);
+K_SEM_DEFINE(my_sem, 1, 1);
 
 static uint8_t notify_func(struct bt_conn *conn,
                struct bt_gatt_subscribe_params *params,
-               const void *data, uint16_t length)
+               const void *payload, uint16_t length)
 {
-    if (!data) {
+    if (!payload) {
         printk("[UNSUBSCRIBED]\n");
         params->value_handle = 0U;
         return BT_GATT_ITER_STOP;
     }
 
-    printk("[NOTIFICATION] data %p length %u\n", data, length);
+    printk("[NOTIFICATION] payload %p length %u\n", payload, length);
     
-    uint8_t *payload = (uint8_t*) data; 
-    int16_t acc_x = payload[0] | (payload[1] << 8);
-    int16_t acc_y = payload[2] | (payload[3] << 8);
-    int16_t acc_z = payload[4] | (payload[5] << 8);
+    uint8_t *data = (uint8_t*) payload;
 
-    printk("X: %d, Y: %d, Z: %d\n", acc_x, acc_y, acc_z);
+    if (length == 2) {
+        uint16_t code = data[0] | (data[1] << 8);
+        printk("Error: %d\n", code);
+    } else { 
+        struct k_mbox_msg send_msg = {
+            .size = length,
+            .tx_data = data,
+            .tx_block.data = NULL,
+            .tx_target_thread = K_ANY
+        };
+
+        k_mbox_async_put(&my_mailbox, &send_msg, NULL);
+    }
 
     return BT_GATT_ITER_CONTINUE;
 }
+
+static void exchange_func(struct bt_conn *conn, uint8_t att_err,
+                          struct bt_gatt_exchange_params *params)
+{
+        printk("MTU exchange %s\n", att_err == 0 ? "successful" : "failed");
+	//params->func = NULL;
+}
+
+
 
 static uint8_t discover_func(struct bt_conn *conn,
                  const struct bt_gatt_attr *attr,
@@ -115,7 +161,7 @@ static bool eir_found(struct bt_data *data, void *user_data)
         memcpy(name, data->data, data->data_len);
             name[data->data_len] = 0;
 
-        if (strcmp(name, "ACC_PERI")) {
+        if (strcmp(name, "PERI_ACC")) {
             return true;
         }
             
@@ -210,6 +256,32 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
             printk("Discover failed(err %d)\n", err);
             return;
         }
+
+        /* Increase MTU size from 23 bytes to 160 bytes(defined in prj.conf) 
+         * to send 25 samples (2 (16bit) * 3 (axis) * 25 bytes + some overhead) 
+         * of accelerometer data
+         */  
+        exchange_params.func = exchange_func;
+
+        err = bt_gatt_exchange_mtu(conn, &exchange_params);
+        if (err) {
+            printk("MTU exchange failed (err %d)\n", err);
+        } else {
+            printk("MTU exchange pending\n");
+        } 
+
+        struct bt_conn_le_data_len_param data_len = {
+            .tx_max_len = 251,
+            .tx_max_time = (251 + 14) * 8
+        };
+
+        err = bt_conn_le_data_len_update(conn, &data_len);
+        if (err) {
+            printk("LE data length update failed: %d", err);
+        } else {
+            printk("LE data length update OK\n");
+        }
+
     }
 }
 
@@ -236,10 +308,58 @@ static struct bt_conn_cb conn_callbacks = {
     .disconnected = disconnected,
 };
 
+void style_init()
+{
+    /*Create background style*/
+    static lv_style_t style_screen;
+    lv_style_set_bg_color(&style_screen, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x69, 0x69, 0x69));
+    lv_obj_add_style(lv_scr_act(), LV_BTN_PART_MAIN, &style_screen);
+    
+    /* Create a label value style */
+    lv_style_init(&style_label_value);
+    lv_style_set_bg_opa(&style_label_value, LV_STATE_DEFAULT, LV_OPA_20);
+    lv_style_set_bg_color(&style_label_value, LV_STATE_DEFAULT, LV_COLOR_SILVER);
+    lv_style_set_bg_grad_color(&style_label_value, LV_STATE_DEFAULT, LV_COLOR_TEAL);
+    lv_style_set_bg_grad_dir(&style_label_value, LV_STATE_DEFAULT, LV_GRAD_DIR_VER);
+    lv_style_set_pad_left(&style_label_value, LV_STATE_DEFAULT, 0);
+    lv_style_set_pad_top(&style_label_value, LV_STATE_DEFAULT, 3);
+    
+    /* Set the text style */
+    lv_style_set_text_color(&style_label_value, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x00, 0x00, 0x30));
+    lv_style_set_text_font(&style_label_value, LV_STATE_DEFAULT, &calibri_20);
+
+    //data_label = lv_label_create(lv_scr_act(), NULL);
+    //lv_obj_align(data_label, NULL, LV_ALIGN_CENTER, -35, 0);
+    //lv_obj_add_style(data_label, LV_LABEL_PART_MAIN, &style_label_value);
+}
+
+void chart_init(struct chart_type *chart)
+{   
+    /* Create a chart */
+    chart->chart_obj = lv_chart_create(lv_scr_act(), NULL);
+    lv_obj_set_size(chart->chart_obj, 300, 200);
+    lv_obj_align(chart->chart_obj, NULL, LV_ALIGN_CENTER, 0, 0);
+    lv_chart_set_type(chart->chart_obj, LV_CHART_TYPE_LINE);   /*Show lines and points too*/
+    
+    /*Add two data series*/
+    chart->series[0] = lv_chart_add_series(chart->chart_obj, LV_COLOR_RED);
+    chart->series[1] = lv_chart_add_series(chart->chart_obj, LV_COLOR_GREEN);
+    chart->series[2] = lv_chart_add_series(chart->chart_obj, LV_COLOR_BLUE);
+}
+
+void chart_update(struct chart_type *chart, uint16_t *data, bool refresh)
+{
+    lv_chart_set_next(chart->chart_obj, chart->series[0], data[0]);
+    lv_chart_set_next(chart->chart_obj, chart->series[1], data[1]);
+    lv_chart_set_next(chart->chart_obj, chart->series[2], data[2]);
+    if (refresh) {
+        lv_chart_refresh(chart->chart_obj);
+    }
+}
+
 void main(void)
 {
-    int err;
-    err = bt_enable(NULL);
+    int err = bt_enable(NULL);
 
     if (err) {
         printk("Bluetooth init failed (err %d)\n", err);
@@ -247,8 +367,56 @@ void main(void)
     }
 
     printk("Bluetooth initialized\n");
-
     bt_conn_cb_register(&conn_callbacks);
-
     start_scan();
+
+    const struct device *display_dev;
+    display_dev = device_get_binding(CONFIG_LVGL_DISPLAY_DEV_NAME);
+
+    if (display_dev == NULL) {
+        printk("%s device not found.  Aborting test.", CONFIG_LVGL_DISPLAY_DEV_NAME);
+        return;
+    }
+
+    printk("Display %s initialized\n", CONFIG_LVGL_DISPLAY_DEV_NAME);
+    display_blanking_off(display_dev);
+
+    struct chart_type acc_chart;
+    uint16_t data[3];
+    
+    chart_init(&acc_chart);
+    uint8_t count = 0;
+    bool refresh;
+    struct k_mbox_msg recv_msg;
+    uint8_t buffer[150];
+    int16_t x, y, z;
+
+    while (1) {
+        refresh = false;
+        recv_msg.size = 150;
+        recv_msg.rx_source_thread = K_ANY;
+
+        k_mbox_get(&my_mailbox, &recv_msg, buffer, K_FOREVER);
+
+        printf("size=%d\n", recv_msg.size);
+
+        for (uint8_t i = 0; i < 150; i += 6) {
+            x = buffer[i+0] | (buffer[i+1] << 8);
+            y = buffer[i+2] | (buffer[i+3] << 8);
+            z = buffer[i+4] | (buffer[i+5] << 8);
+
+            printf("%d, %d, %d\n", x, y, z);
+            data[0] = 100 + ((x-1200)/24.f);
+            data[1] = 100 + ((y-1200)/24.f);
+            data[2] = 100 + ((z-1200)/24.f);
+        
+            if (++count == 25) {
+                count = 0;
+                refresh = true;
+            }
+            chart_update(&acc_chart, data, refresh);
+        }
+        lv_task_handler();
+        //k_sleep(K_MSEC(5));
+    }
 }

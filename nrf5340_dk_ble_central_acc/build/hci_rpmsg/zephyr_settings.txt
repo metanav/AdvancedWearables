@@ -1,0 +1,3 @@
+"BOARD_ROOT":"/Users/naveen/nRF_source/ncs/nrf"
+"DTS_ROOT":"/Users/naveen/nRF_source/ncs/nrf"
+"MODULE_EXT_ROOT":"/Users/naveen/nRF_source/ncs/nrf"

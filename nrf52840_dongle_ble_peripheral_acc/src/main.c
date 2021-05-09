@@ -73,6 +73,7 @@ static void disconnected(struct bt_conn *conn, u8_t reason)
     printk("Disconnected (reason %u)\n", reason);
 }
 
+
 static bool le_param_req(struct bt_conn *conn, struct bt_le_conn_param *param)
 {
     //If acceptable params, return true, otherwise return false.
@@ -103,10 +104,10 @@ static void le_param_updated(struct bt_conn *conn, u16_t interval, u16_t latency
 
 static struct bt_conn_cb conn_callbacks = 
 {
-    .connected                = connected,
-    .disconnected           = disconnected,
-    .le_param_req            = le_param_req,
-    .le_param_updated        = le_param_updated
+    .connected        = connected,
+    .disconnected     = disconnected,
+    .le_param_req     = le_param_req,
+    .le_param_updated = le_param_updated,
 };
 
 static void bt_ready(int err)
@@ -149,7 +150,8 @@ static void error(uint8_t code)
     while (true) {
         printk("Error!\n");
         if (code > 0) {
-            acc_service_send(ble_connection, (uint8_t*) &code, 1);
+            uint16_t data = 1000 + code;
+            acc_service_send(ble_connection, (uint8_t*) &data, 2);
         }
         /* Spin for ever */
         k_sleep(K_MSEC(1000)); //1000ms
@@ -158,9 +160,7 @@ static void error(uint8_t code)
 
 void main(void)
 {
-    
     int err = 0;
-
     err = dk_leds_init();
     if (err) {
         printk("Cannot init LEDs (err: %d)", err);
@@ -168,12 +168,9 @@ void main(void)
     }
 
     printk("Starting Nordic BLE peripheral tutorial\n");
-
     
     err = bt_enable(bt_ready);
-
-    if (err) 
-    {
+    if (err) {
         printk("BLE initialization failed\n");
         error(0); //Catch error
     }
@@ -191,50 +188,43 @@ void main(void)
         printk("Bluetooth initialized\n");
     } else {
         printk("BLE initialization did not complete in time\n");
-        error(0); //Catch error
+        error(0);
     }
 
     err = acc_service_init();
 
+   const struct device *dev = device_get_binding(DT_LABEL(DT_INST(0, adi_adxl345)));
+   if (dev == NULL) {
+       printk("Device get binding device\n");
+       error(1);
+   }
+
     struct sensor_value accel[3];
+    uint16_t data[75];
+    const uint8_t len = 150;
+    int idx = 0;
 
-    const struct device *dev = device_get_binding(DT_LABEL(DT_INST(0, adi_adxl345)));
-    if (dev == NULL) {
-        printk("Device get binding device\n");
-        error(1); //Catch error
-    }
-
-    
-    for (;;) 
-    {
-        k_sleep(K_MSEC(1000));
-
-        if (sensor_sample_fetch(dev) < 0) {
+    for (;;) {
+        int samples_count = sensor_sample_fetch(dev);
+        if ( samples_count < 0 ) {
             printk("Sample fetch error\n");
-            error(2); //Catch error
+            error(2); 
         }
 
-        if (sensor_channel_get(dev, SENSOR_CHAN_ACCEL_X, &accel[0]) < 0) {
-            printk("Channel get error\n");
-            error(3); //Catch error
+        for (int i = 0; i < samples_count; i++) {
+            if (sensor_channel_get(dev, SENSOR_CHAN_ACCEL_XYZ, accel) < 0) {
+                printk("Channel get error\n");
+                error(3); 
+            }
+            data[idx]   = accel[0].val1;
+            data[idx+1] = accel[1].val1;
+            data[idx+2] = accel[2].val1;
+            idx += 3;
+            if (idx > 75) {
+                acc_service_send(ble_connection, (uint8_t *) data, len); 
+                idx = 0;
+            }
         }
-
-        if (sensor_channel_get(dev, SENSOR_CHAN_ACCEL_Y, &accel[1]) < 0) {
-            printk("Channel get error\n");
-            error(3); //Catch error
-        }
-
-        if (sensor_channel_get(dev, SENSOR_CHAN_ACCEL_Z, &accel[2]) < 0) {
-            printk("Channel get error\n");
-            error(3); //Catch error
-        }
-
-        uint16_t data[3] = { accel[0].val1, accel[1].val1, accel[2].val1 };
-
-        acc_service_send(ble_connection, (uint8_t *) data, 6); 
-        //uint8_t str[15] = {0};
-        //sprintf(str, "%d,%d,%d,", accel[0].val1, accel[1].val1, accel[2].val1);
-        //acc_service_send(ble_connection, (uint8_t*) str, 15); 
-       
+        //k_sleep(K_MSEC(1000));
     }
 }

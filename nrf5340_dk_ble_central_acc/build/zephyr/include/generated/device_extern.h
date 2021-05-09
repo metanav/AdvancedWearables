@@ -1,0 +1,105 @@
+#ifndef DEVICE_EXTERN_GEN_H
+#define DEVICE_EXTERN_GEN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern const struct device DEVICE_DT_NAME_GET(DT_N);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_aliases);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_chosen);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_connector);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_buttons);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_gpio_842500);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_buttons_S_button_0);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_buttons_S_button_1);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_buttons_S_button_2);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_buttons_S_button_3);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_cpus);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_cpus_S_cpu_0);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_cpus_S_cpu_0_S_mpu_e000ed90);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_leds);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_leds_S_led_0);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_leds_S_led_1);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_leds_S_led_2);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_leds_S_led_3);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_reserved_memory);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_reserved_memory_S_image_20000000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_reserved_memory_S_image_ns_20040000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_reserved_memory_S_image_s_20000000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_reserved_memory_S_memory_20070000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_ficr_ff0000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_interrupt_controller_e000e100);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_gpiote_5000d000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_memory_20000000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_memory_21000000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_spu_50003000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_timer_e000e010);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_uicr_ff8000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_crypto_50844000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_crypto_50844000_S_crypto_50845000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_adc_e000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_clock_5000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_dppic_17000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_egu_1b000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_egu_1c000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_egu_1d000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_egu_1e000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_egu_1f000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_egu_20000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_i2c_8000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_i2c_b000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_i2c_c000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_i2s_28000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_ipc_2a000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_kmu_39000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_pdm_26000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_power_5000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_pwm_21000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_pwm_22000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_pwm_23000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_pwm_24000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_regulator_4000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_rtc_14000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_rtc_15000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_spi_8000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_spi_9000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_spi_b000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_spi_c000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_timer_f000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_timer_10000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_timer_11000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_uart_8000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_uart_9000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_uart_b000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_uart_c000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_usbd_36000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_vmc_81000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_watchdog_18000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_watchdog_19000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions_S_partition_0);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions_S_partition_10000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions_S_partition_50000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions_S_partition_80000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions_S_partition_c0000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions_S_partition_f0000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_flash_controller_39000_S_flash_0_S_partitions_S_partition_fa000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_i2c_9000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_i2c_9000_S_ft5336_38);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_qspi_2b000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_qspi_2b000_S_mx25r6435f_0);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_gpio_842800);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_spi_a000);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_spi_a000_S_ili9340_0);
+extern const struct device DEVICE_DT_NAME_GET(DT_N_S_soc_S_peripheral_50000000_S_spi_a000_S_sdhc_1);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* DEVICE_EXTERN_GEN_H */

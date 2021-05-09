@@ -1,0 +1,3 @@
+osource "/Users/naveen/nRF_source/ncs/nrf/boards/shields/*/Kconfig.shield"
+osource "/Users/naveen/nRF_source/ncs/zephyr/boards/shields/*/Kconfig.shield"
+osource "/Users/naveen/nRF_source/ncs/zephyr/boards/shields/*/Kconfig.shield"
