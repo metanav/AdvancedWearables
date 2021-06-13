@@ -19,6 +19,9 @@
 #include <disk/disk_access.h>
 #include <fs/fs.h>
 #include <ff.h>
+#define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
+#include <logging/log.h>
+LOG_MODULE_REGISTER(app);
 
 static void init_sd();
 static void write_to_sd(char *buf, size_t bufsize);
@@ -27,8 +30,8 @@ static int lsdir(const char *path);
 static FATFS fat_fs;
 /* mounting info */
 static struct fs_mount_t mp = {
-	.type = FS_FATFS,
-	.fs_data = &fat_fs,
+    .type = FS_FATFS,
+    .fs_data = &fat_fs,
 };
 
 /*
@@ -54,18 +57,17 @@ static struct bt_conn *default_conn;
 static struct bt_uuid_128 uuid = BT_UUID_INIT_128(0);
 static struct bt_gatt_discover_params discover_params;
 static struct bt_gatt_subscribe_params subscribe_params;
-lv_obj_t *data_label;
+
+lv_obj_t *btnm;
+lv_style_t style_btnm;
 
 struct chart_type {
     lv_obj_t *chart_obj;
     lv_chart_series_t *series[3]; 
 };
 
-// Styles
-lv_style_t style_label, style_label_value;
-
-
 // Fonts
+LV_FONT_DECLARE(arial_20b);
 LV_FONT_DECLARE(arial_20bold);
 LV_FONT_DECLARE(calibri_20b);
 LV_FONT_DECLARE(calibri_20);
@@ -112,7 +114,7 @@ static void exchange_func(struct bt_conn *conn, uint8_t att_err,
                           struct bt_gatt_exchange_params *params)
 {
         printk("MTU exchange %s\n", att_err == 0 ? "successful" : "failed");
-	//params->func = NULL;
+    //params->func = NULL;
 }
 
 
@@ -329,38 +331,13 @@ static struct bt_conn_cb conn_callbacks = {
     .disconnected = disconnected,
 };
 
-void style_init()
-{
-    /*Create background style*/
-    //static lv_style_t style_screen;
-    //lv_style_init(&style_screen);
-    //lv_style_set_bg_color(&style_screen, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x00, 0x00, 0x00));
-    //lv_obj_add_style(lv_scr_act(), LV_BTN_PART_MAIN, &style_screen);
-    
-    /* Create a label value style */
-    lv_style_init(&style_label_value);
-    lv_style_set_bg_opa(&style_label_value, LV_STATE_DEFAULT, LV_OPA_20);
-    lv_style_set_bg_color(&style_label_value, LV_STATE_DEFAULT, LV_COLOR_SILVER);
-    lv_style_set_bg_grad_color(&style_label_value, LV_STATE_DEFAULT, LV_COLOR_TEAL);
-    lv_style_set_bg_grad_dir(&style_label_value, LV_STATE_DEFAULT, LV_GRAD_DIR_VER);
-    lv_style_set_pad_left(&style_label_value, LV_STATE_DEFAULT, 0);
-    lv_style_set_pad_top(&style_label_value, LV_STATE_DEFAULT, 3);
-    
-    /* Set the text style */
-    lv_style_set_text_color(&style_label_value, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x00, 0x00, 0x30));
-    lv_style_set_text_font(&style_label_value, LV_STATE_DEFAULT, &calibri_20);
-
-    //data_label = lv_label_create(lv_scr_act(), NULL);
-    //lv_obj_align(data_label, NULL, LV_ALIGN_CENTER, -35, 0);
-    //lv_obj_add_style(data_label, LV_LABEL_PART_MAIN, &style_label_value);
-}
 
 void chart_init(struct chart_type *chart)
 {   
     /* Create a chart */
     chart->chart_obj = lv_chart_create(lv_scr_act(), NULL);
     //lv_obj_set_size(chart->chart_obj, 300, 200);
-    lv_obj_set_size(chart->chart_obj, 320, 160);
+    lv_obj_set_size(chart->chart_obj, 320, 80);
     lv_obj_align(chart->chart_obj, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
     lv_chart_set_type(chart->chart_obj, LV_CHART_TYPE_LINE);   /*Show lines and points too*/
     // no grids
@@ -389,6 +366,39 @@ void chart_update(struct chart_type *chart, uint16_t *data, bool refresh)
     }
 }
 
+static void btn_matrix_event_handler(lv_obj_t * obj, lv_event_t event)
+{
+    if(event == LV_EVENT_VALUE_CHANGED) {
+        const char * txt = lv_btnmatrix_get_active_btn_text(obj);
+
+        LOG_INF("%s was pressed\n", txt);
+    }
+}
+
+
+static const char * btnm_map[] = {"Walking", "Running", "\n", 
+                                  "Sitting Good", "Sitting Bad", ""};
+
+void create_btn_matrix(void)
+{
+    btnm = lv_btnmatrix_create(lv_scr_act(), NULL);
+    lv_btnmatrix_set_map(btnm, btnm_map);
+    lv_btnmatrix_set_btn_ctrl(btnm, 0, LV_BTNMATRIX_CTRL_CHECKABLE);
+    lv_btnmatrix_set_btn_ctrl(btnm, 1, LV_BTNMATRIX_CTRL_CHECKABLE);
+    lv_btnmatrix_set_btn_ctrl(btnm, 2, LV_BTNMATRIX_CTRL_CHECKABLE);
+    lv_btnmatrix_set_btn_ctrl(btnm, 3, LV_BTNMATRIX_CTRL_CHECKABLE);
+    lv_btnmatrix_set_one_check(btnm, true);
+
+    lv_style_init(&style_btnm);
+    lv_style_set_text_color(&style_btnm, LV_STATE_DEFAULT, LV_COLOR_TEAL);
+    lv_style_set_text_font(&style_btnm, LV_STATE_DEFAULT, &calibri_20); //&lv_font_montserrat_16);
+    //lv_obj_reset_style_list(btnm, LV_BTN_PART_MAIN);         /*Remove the styles coming from the theme*/
+    lv_obj_add_style(btnm, LV_BTN_PART_MAIN, &style_btnm);
+
+    lv_obj_align(btnm, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
+    lv_obj_set_event_cb(btnm, btn_matrix_event_handler);
+}
+
 void main(void)
 {
     int err = bt_enable(NULL);
@@ -414,7 +424,7 @@ void main(void)
 
     display_blanking_off(display_dev);
     
-    style_init();
+    create_btn_matrix();
 
     struct k_mbox_msg recv_msg;
     struct chart_type acc_chart;
@@ -425,7 +435,7 @@ void main(void)
     int16_t data[3];
 
     while (1) {
-        refresh = false;
+        /*refresh = false;
         recv_msg.size = 150;
         recv_msg.rx_source_thread = K_ANY;
 
@@ -445,9 +455,9 @@ void main(void)
                 refresh = true;
             }
             chart_update(&acc_chart, data, refresh);
-        }
+        }*/
         lv_task_handler();
-        //k_sleep(K_MSEC(5));
+        k_sleep(K_MSEC(5));
     }
 }
 
@@ -455,32 +465,32 @@ static void init_sd()
 {
     /* raw disk i/o */
     do { 
-    	static const char *disk_pdrv = "SD";
-    	uint64_t memory_size_mb;
-    	uint32_t block_count;
-    	uint32_t block_size;
+        static const char *disk_pdrv = "SD";
+        uint64_t memory_size_mb;
+        uint32_t block_count;
+        uint32_t block_size;
     
-    	if (disk_access_init(disk_pdrv) != 0) {
-    		printk("Storage init ERROR!");
-    		break;
-    	}
+        if (disk_access_init(disk_pdrv) != 0) {
+            printk("Storage init ERROR!");
+            break;
+        }
     
-    	if (disk_access_ioctl(disk_pdrv,
-    			DISK_IOCTL_GET_SECTOR_COUNT, &block_count)) {
-    		printk("Unable to get sector count");
-    		break;
-    	}
-    	printk("Block count %u", block_count);
+        if (disk_access_ioctl(disk_pdrv,
+                DISK_IOCTL_GET_SECTOR_COUNT, &block_count)) {
+            printk("Unable to get sector count");
+            break;
+        }
+        printk("Block count %u", block_count);
     
-    	if (disk_access_ioctl(disk_pdrv,
-    			DISK_IOCTL_GET_SECTOR_SIZE, &block_size)) {
-    		printk("Unable to get sector size");
-    		break;
-    	}
-    	printk("Sector size %u\n", block_size);
+        if (disk_access_ioctl(disk_pdrv,
+                DISK_IOCTL_GET_SECTOR_SIZE, &block_size)) {
+            printk("Unable to get sector size");
+            break;
+        }
+        printk("Sector size %u\n", block_size);
     
-    	memory_size_mb = (uint64_t)block_count * block_size;
-    	printk("Memory Size(MB) %u\n", (uint32_t)(memory_size_mb >> 20));
+        memory_size_mb = (uint64_t)block_count * block_size;
+        printk("Memory Size(MB) %u\n", (uint32_t)(memory_size_mb >> 20));
     } while (0);
 
     mp.mnt_point = disk_mount_pt;
@@ -488,10 +498,10 @@ static void init_sd()
     int res = fs_mount(&mp);
     
     if (res == FR_OK) {
-    	printk("Disk mounted.\n");
-    	lsdir(disk_mount_pt);
+        printk("Disk mounted.\n");
+        lsdir(disk_mount_pt);
     } else {
-    	printk("Error mounting disk.\n");
+        printk("Error mounting disk.\n");
     }
 }
 
