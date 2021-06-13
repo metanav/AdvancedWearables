@@ -16,6 +16,27 @@
 #include <lvgl.h>
 #include <stdio.h>
 #include <string.h>
+#include <disk/disk_access.h>
+#include <fs/fs.h>
+#include <ff.h>
+
+static void init_sd();
+static void write_to_sd(char *buf, size_t bufsize);
+static int lsdir(const char *path);
+
+static FATFS fat_fs;
+/* mounting info */
+static struct fs_mount_t mp = {
+	.type = FS_FATFS,
+	.fs_data = &fat_fs,
+};
+
+/*
+*  Note the fatfs library is able to mount only strings inside _VOLUME_STRS
+*  in ffconf.h
+*/
+static const char *disk_mount_pt = "/SD:";
+
 
 #define ACC_SERVICE_UUID 0xd4, 0x86, 0x48, 0x24, 0x54, 0xB3, 0x43, 0xA1, \
                      0xBC, 0x20, 0x97, 0x8F, 0xC3, 0x76, 0xC2, 0x75
@@ -311,9 +332,10 @@ static struct bt_conn_cb conn_callbacks = {
 void style_init()
 {
     /*Create background style*/
-    static lv_style_t style_screen;
-    lv_style_set_bg_color(&style_screen, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x69, 0x69, 0x69));
-    lv_obj_add_style(lv_scr_act(), LV_BTN_PART_MAIN, &style_screen);
+    //static lv_style_t style_screen;
+    //lv_style_init(&style_screen);
+    //lv_style_set_bg_color(&style_screen, LV_STATE_DEFAULT, LV_COLOR_MAKE(0x00, 0x00, 0x00));
+    //lv_obj_add_style(lv_scr_act(), LV_BTN_PART_MAIN, &style_screen);
     
     /* Create a label value style */
     lv_style_init(&style_label_value);
@@ -337,11 +359,21 @@ void chart_init(struct chart_type *chart)
 {   
     /* Create a chart */
     chart->chart_obj = lv_chart_create(lv_scr_act(), NULL);
-    lv_obj_set_size(chart->chart_obj, 300, 200);
-    lv_obj_align(chart->chart_obj, NULL, LV_ALIGN_CENTER, 0, 0);
+    //lv_obj_set_size(chart->chart_obj, 300, 200);
+    lv_obj_set_size(chart->chart_obj, 320, 160);
+    lv_obj_align(chart->chart_obj, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
     lv_chart_set_type(chart->chart_obj, LV_CHART_TYPE_LINE);   /*Show lines and points too*/
-    
-    /*Add two data series*/
+    // no grids
+    lv_chart_set_div_line_count(chart->chart_obj, 0, 0);
+    lv_chart_set_point_count(chart->chart_obj, 100);
+    //lv_obj_set_style_local_bg_color(chart->chart_obj, LV_CHART_PART_BG, LV_STATE_DEFAULT, LV_COLOR_BLACK);          
+    //lv_obj_set_style_local_border_color(chart->chart_obj, LV_CHART_PART_BG, LV_STATE_DEFAULT, LV_COLOR_BLACK);          
+
+    // no points only lines
+    lv_obj_set_style_local_size(chart->chart_obj, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, 0);
+    lv_chart_set_y_range(chart->chart_obj, LV_CHART_AXIS_PRIMARY_Y, -4096, 4096);
+
+    /* Add three data series */
     chart->series[0] = lv_chart_add_series(chart->chart_obj, LV_COLOR_RED);
     chart->series[1] = lv_chart_add_series(chart->chart_obj, LV_COLOR_GREEN);
     chart->series[2] = lv_chart_add_series(chart->chart_obj, LV_COLOR_BLUE);
@@ -379,17 +411,18 @@ void main(void)
     }
 
     printk("Display %s initialized\n", CONFIG_LVGL_DISPLAY_DEV_NAME);
-    display_blanking_off(display_dev);
 
-    struct chart_type acc_chart;
-    uint16_t data[3];
+    display_blanking_off(display_dev);
     
+    style_init();
+
+    struct k_mbox_msg recv_msg;
+    struct chart_type acc_chart;
     chart_init(&acc_chart);
     uint8_t count = 0;
     bool refresh;
-    struct k_mbox_msg recv_msg;
     uint8_t buffer[150];
-    int16_t x, y, z;
+    int16_t data[3];
 
     while (1) {
         refresh = false;
@@ -401,15 +434,12 @@ void main(void)
         printf("size=%d\n", recv_msg.size);
 
         for (uint8_t i = 0; i < 150; i += 6) {
-            x = buffer[i+0] | (buffer[i+1] << 8);
-            y = buffer[i+2] | (buffer[i+3] << 8);
-            z = buffer[i+4] | (buffer[i+5] << 8);
+            data[0] = buffer[i+0] | (buffer[i+1] << 8);
+            data[1] = buffer[i+2] | (buffer[i+3] << 8);
+            data[2] = buffer[i+4] | (buffer[i+5] << 8);
 
-            printf("%d, %d, %d\n", x, y, z);
-            data[0] = 100 + ((x-1200)/24.f);
-            data[1] = 100 + ((y-1200)/24.f);
-            data[2] = 100 + ((z-1200)/24.f);
-        
+            //printf("%d, %d, %d\n", data[0], data[1], data[2]);
+
             if (++count == 25) {
                 count = 0;
                 refresh = true;
@@ -419,4 +449,107 @@ void main(void)
         lv_task_handler();
         //k_sleep(K_MSEC(5));
     }
+}
+
+static void init_sd()
+{
+    /* raw disk i/o */
+    do { 
+    	static const char *disk_pdrv = "SD";
+    	uint64_t memory_size_mb;
+    	uint32_t block_count;
+    	uint32_t block_size;
+    
+    	if (disk_access_init(disk_pdrv) != 0) {
+    		printk("Storage init ERROR!");
+    		break;
+    	}
+    
+    	if (disk_access_ioctl(disk_pdrv,
+    			DISK_IOCTL_GET_SECTOR_COUNT, &block_count)) {
+    		printk("Unable to get sector count");
+    		break;
+    	}
+    	printk("Block count %u", block_count);
+    
+    	if (disk_access_ioctl(disk_pdrv,
+    			DISK_IOCTL_GET_SECTOR_SIZE, &block_size)) {
+    		printk("Unable to get sector size");
+    		break;
+    	}
+    	printk("Sector size %u\n", block_size);
+    
+    	memory_size_mb = (uint64_t)block_count * block_size;
+    	printk("Memory Size(MB) %u\n", (uint32_t)(memory_size_mb >> 20));
+    } while (0);
+
+    mp.mnt_point = disk_mount_pt;
+    
+    int res = fs_mount(&mp);
+    
+    if (res == FR_OK) {
+    	printk("Disk mounted.\n");
+    	lsdir(disk_mount_pt);
+    } else {
+    	printk("Error mounting disk.\n");
+    }
+}
+
+
+static void write_to_sd(char *buf, size_t bufsize)
+{
+    struct fs_file_t fp;
+
+    int ret = fs_open(&fp, "/SD:/new.txt", FS_O_CREATE | FS_O_WRITE);
+
+    if (ret != 0) {
+        printk("Failed to open file: %d\n", ret);
+        return;
+    }
+    
+    ret = fs_write(&fp, buf, bufsize);
+
+    if (ret < 0) {
+        printk("Failed to write: %d\n", ret);
+        return;
+    }
+
+    fs_close(&fp);
+}
+
+static int lsdir(const char *path)
+{
+        int res;
+        struct fs_dir_t dirp;
+        static struct fs_dirent entry;
+
+        /* Verify fs_opendir() */
+        res = fs_opendir(&dirp, path);
+        if (res) {
+                printk("Error opening dir %s [%d]\n", path, res);
+                return res;
+        }
+
+        printk("\nListing dir %s ...\n", path);
+        for (;;) {
+                /* Verify fs_readdir() */
+                res = fs_readdir(&dirp, &entry);
+
+                /* entry.name[0] == 0 means end-of-dir */
+                if (res || entry.name[0] == 0) {
+                        break;
+                }
+
+                if (entry.type == FS_DIR_ENTRY_DIR) {
+                        printk("[DIR ] %s\n", entry.name);
+                } else {
+                        printk("[FILE] %s (size = %zu)\n",
+                                entry.name, entry.size);
+                }
+        }
+
+        /* Verify fs_closedir() */
+        fs_closedir(&dirp);
+
+        return res;
 }

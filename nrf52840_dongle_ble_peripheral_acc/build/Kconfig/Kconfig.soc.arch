@@ -1,2 +1,0 @@
-osource "/Users/naveen/nRF_source/ncs/zephyr/soc/$(ARCH)/Kconfig"
-osource "/Users/naveen/nRF_source/ncs/zephyr/soc/$(ARCH)/*/Kconfig"

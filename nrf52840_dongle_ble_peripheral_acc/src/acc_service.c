@@ -22,8 +22,8 @@
 
 #define MAX_TRANSMIT_SIZE 240//TODO figure this out
 
-u8_t data_rx[MAX_TRANSMIT_SIZE];
-u8_t data_tx[MAX_TRANSMIT_SIZE];
+uint8_t data_rx[MAX_TRANSMIT_SIZE];
+uint8_t data_tx[MAX_TRANSMIT_SIZE];
 
 int acc_service_init(void)
 {
@@ -39,14 +39,14 @@ int acc_service_init(void)
 static ssize_t on_receive(struct bt_conn *conn,
 			  const struct bt_gatt_attr *attr,
 			  const void *buf,
-			  u16_t len,
-			  u16_t offset,
-			  u8_t flags)
+			  uint16_t len,
+			  uint16_t offset,
+			  uint8_t flags)
 {
-    const u8_t * buffer = buf;
+    const uint8_t * buffer = buf;
     
 	printk("Received data, handle %d, conn %p, data: 0x", attr->handle, conn);
-    for(u8_t i = 0; i < len; i++){
+    for(uint8_t i = 0; i < len; i++){
         printk("%02X", buffer[i]);
     }
     printk("\n");
@@ -70,7 +70,7 @@ static void on_sent(struct bt_conn *conn, void *user_data)
 }
 
 /* This function is called whenever the CCCD register has been changed by the client*/
-void on_cccd_changed(const struct bt_gatt_attr *attr, u16_t value)
+void on_cccd_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
     ARG_UNUSED(attr);
     switch(value)
@@ -111,7 +111,7 @@ BT_GATT_CCC(on_cccd_changed,
 /* This function sends a notification to a Client with the provided data,
 given that the Client Characteristic Control Descripter has been set to Notify (0x1).
 It also calls the on_sent() callback if successful*/
-void acc_service_send(struct bt_conn *conn, const u8_t *data, uint16_t len)
+void acc_service_send(struct bt_conn *conn, const uint8_t *data, uint16_t len)
 {
     /* 
     The attribute for the TX characteristic is used with bt_gatt_is_subscribed 

@@ -1,1 +1,0 @@
-osource "/Users/naveen/nRF_source/ncs/zephyr/soc/$(ARCH)/*/Kconfig.defconfig"

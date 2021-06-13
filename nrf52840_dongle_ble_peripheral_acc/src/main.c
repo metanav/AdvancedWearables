@@ -40,7 +40,7 @@ static const struct bt_data sd[] =
 
 struct bt_conn *ble_connection;
 
-static void connected(struct bt_conn *conn, u8_t err)
+static void connected(struct bt_conn *conn, uint8_t err)
 {
     struct bt_conn_info info; 
     char addr[BT_ADDR_LE_STR_LEN];
@@ -67,7 +67,7 @@ static void connected(struct bt_conn *conn, u8_t err)
     }
 }
 
-static void disconnected(struct bt_conn *conn, u8_t reason)
+static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
     dk_set_led_off(CON_STATUS_LED);
     printk("Disconnected (reason %u)\n", reason);
@@ -80,7 +80,7 @@ static bool le_param_req(struct bt_conn *conn, struct bt_le_conn_param *param)
     return true; 
 }
 
-static void le_param_updated(struct bt_conn *conn, u16_t interval, u16_t latency, u16_t timeout)
+static void le_param_updated(struct bt_conn *conn, uint16_t interval, uint16_t latency, uint16_t timeout)
 {
     struct bt_conn_info info; 
     char addr[BT_ADDR_LE_STR_LEN];
