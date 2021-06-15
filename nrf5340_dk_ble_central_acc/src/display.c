@@ -1,5 +1,8 @@
+#include <stdio.h>
 #include "display.h"
+#include "sd.h"
 
+#define LABELS_COUNT 4
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include <logging/log.h>
 LOG_MODULE_REGISTER(display);
@@ -9,33 +12,44 @@ LV_FONT_DECLARE(calibri_20);
 extern struct k_mbox data_mailbox;
 
 static lv_obj_t *btnm;
+static lv_obj_t *mbox;
 static lv_style_t style_btnm;
-static const char *btnm_map[] = {"Walking", "Running", "\n", 
-                                  "Sitting Good", "Sitting Bad", ""};
+static lv_style_t style_mbox;
+static lv_style_t style_err_mbox;
+static int8_t btnm_states[LABELS_COUNT] = {0, 0, 0, 0};
+static char labels[LABELS_COUNT][15] = {"Walking", "Running", "Sitting Good", "Sitting Bad"};
+static char label[15];
+
+static const char *btnm_map[] = {
+    labels[0], labels[1], "\n", 
+    labels[2], labels[3], ""
+};
 
 struct chart_type {
     lv_obj_t *chart_obj;
     lv_chart_series_t *series[3]; 
 };
 
+static bool recording = false;
+static bool recording_ready = false;
+static bool recording_done  = false;
 
 void chart_init(struct chart_type *chart)
 {   
     /* Create a chart */
     chart->chart_obj = lv_chart_create(lv_scr_act(), NULL);
-    //lv_obj_set_size(chart->chart_obj, 300, 200);
-    lv_obj_set_size(chart->chart_obj, 320, 80);
-    lv_obj_align(chart->chart_obj, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
+    lv_obj_set_size(chart->chart_obj, 310, 80);
+    lv_obj_align(chart->chart_obj, NULL, LV_ALIGN_IN_BOTTOM_MID, 0, -5);
     lv_chart_set_type(chart->chart_obj, LV_CHART_TYPE_LINE);   /*Show lines and points too*/
     // no grids
     lv_chart_set_div_line_count(chart->chart_obj, 0, 0);
     lv_chart_set_point_count(chart->chart_obj, 100);
-    //lv_obj_set_style_local_bg_color(chart->chart_obj, LV_CHART_PART_BG, LV_STATE_DEFAULT, LV_COLOR_BLACK);          
-    //lv_obj_set_style_local_border_color(chart->chart_obj, LV_CHART_PART_BG, LV_STATE_DEFAULT, LV_COLOR_BLACK);          
+    lv_obj_set_style_local_bg_color(chart->chart_obj, LV_CHART_PART_BG, LV_STATE_DEFAULT, LV_COLOR_BLACK);          
+    lv_obj_set_style_local_border_color(chart->chart_obj, LV_CHART_PART_BG, LV_STATE_DEFAULT, LV_COLOR_BLACK);          
 
     // no points only lines
     lv_obj_set_style_local_size(chart->chart_obj, LV_CHART_PART_SERIES, LV_STATE_DEFAULT, 0);
-    lv_chart_set_y_range(chart->chart_obj, LV_CHART_AXIS_PRIMARY_Y, -4096, 4096);
+    lv_chart_set_y_range(chart->chart_obj, LV_CHART_AXIS_PRIMARY_Y, -1536, 1536);
 
     /* Add three data series */
     chart->series[0] = lv_chart_add_series(chart->chart_obj, LV_COLOR_RED);
@@ -53,32 +67,106 @@ void chart_update(struct chart_type *chart, uint16_t *data, bool refresh)
     }
 }
 
-static void btn_matrix_event_handler(lv_obj_t * obj, lv_event_t event)
+static void style_init()
 {
-    if(event == LV_EVENT_VALUE_CHANGED) {
-        const char * txt = lv_btnmatrix_get_active_btn_text(obj);
+    lv_style_init(&style_btnm);
+    lv_style_set_text_font(&style_btnm, LV_STATE_DEFAULT, &calibri_20);
 
-        LOG_INF("%s was pressed\n", txt);
+    lv_style_init(&style_mbox);
+    lv_style_set_text_font(&style_mbox, LV_STATE_DEFAULT, &calibri_20);
+
+    lv_style_init(&style_err_mbox);
+    lv_style_set_text_font(&style_err_mbox, LV_STATE_DEFAULT, &calibri_20);
+}
+
+
+
+static void mbox_event_cb(lv_obj_t *obj, lv_event_t evt)
+{
+    if(evt == LV_EVENT_DELETE && obj == mbox) {
+        LOG_INF("mbox: LV_EVENT_DELETE event was called\n"); 
+        mbox = NULL;
+        for (int8_t i=0; i<LABELS_COUNT; i++) {
+            if (btnm_states[i] == 1) {
+                strcpy(label, labels[i]); 
+                recording = true;
+                LOG_INF("mbox: Going to capture data for %s\n", labels[i]);
+                break;
+            }
+        }
+    } 
+}
+
+static void btn_matrix_event_handler(lv_obj_t *obj, lv_event_t event)
+{
+    uint16_t id = lv_btnmatrix_get_active_btn(obj);
+    if(event == LV_EVENT_VALUE_CHANGED) {
+
+        btnm_states[id] = !btnm_states[id];
+        if (btnm_states[id] == 0) {
+            if (mbox) {
+                lv_msgbox_start_auto_close(mbox, 0);
+            }
+
+            for (uint8_t i=0; i < LABELS_COUNT; i++) {
+                if (i != id) {
+                    lv_btnmatrix_clear_btn_ctrl(obj, i, LV_BTNMATRIX_CTRL_DISABLED);
+                }
+            }
+        } else {
+            for (uint8_t i=0; i < LABELS_COUNT; i++) {
+                if (i != id) {
+                    lv_btnmatrix_set_btn_ctrl(obj, i, LV_BTNMATRIX_CTRL_DISABLED);
+                }
+            }
+            const char msg[50]; 
+            sprintf(msg, "[%s]\nStarting in 5s", lv_btnmatrix_get_active_btn_text(obj));
+
+            /* Create an auto dismiss message box  */
+            mbox = lv_msgbox_create(lv_scr_act(), NULL);
+            lv_msgbox_set_text(mbox, msg);
+            lv_msgbox_start_auto_close(mbox, 5000);
+            lv_obj_set_event_cb(mbox, mbox_event_cb);
+            lv_obj_set_size(mbox, LV_HOR_RES/2, LV_VER_RES/4);
+            lv_obj_add_style(mbox, LV_BTN_PART_MAIN, &style_mbox);
+            lv_obj_set_pos(mbox, LV_HOR_RES/4,  LV_VER_RES/2);
+        }
     }
 }
 
+lv_obj_t *err_mbox;
+
+static void err_mbox_event_cb(lv_obj_t *obj, lv_event_t evt)
+{
+     LOG_INF("err_mbox_event_cb was called\n");
+
+     if(evt == LV_EVENT_VALUE_CHANGED) {
+        lv_msgbox_start_auto_close(err_mbox, 0);
+     }
+}
+
+void show_err_mbox(const char *msg)
+{
+    err_mbox = lv_msgbox_create(lv_scr_act(), NULL);
+    static const char * btns[] = {"OK", ""};
+
+    lv_msgbox_add_btns(err_mbox, btns);
+    lv_msgbox_set_text(err_mbox, msg);
+    lv_obj_set_event_cb(err_mbox, err_mbox_event_cb);
+    lv_obj_set_size(err_mbox, (LV_HOR_RES*3)/4, LV_VER_RES/4);
+    lv_obj_add_style(err_mbox, LV_BTN_PART_MAIN, &style_err_mbox);
+    //lv_obj_set_pos(err_mbox, LV_HOR_RES/4, LV_VER_RES/2);
+    lv_obj_align(err_mbox, NULL, LV_ALIGN_CENTER, 0, 0);
+
+}
 
 void create_btn_matrix(void)
 {
     btnm = lv_btnmatrix_create(lv_scr_act(), NULL);
     lv_btnmatrix_set_map(btnm, btnm_map);
-    lv_btnmatrix_set_btn_ctrl(btnm, 0, LV_BTNMATRIX_CTRL_CHECKABLE);
-    lv_btnmatrix_set_btn_ctrl(btnm, 1, LV_BTNMATRIX_CTRL_CHECKABLE);
-    lv_btnmatrix_set_btn_ctrl(btnm, 2, LV_BTNMATRIX_CTRL_CHECKABLE);
-    lv_btnmatrix_set_btn_ctrl(btnm, 3, LV_BTNMATRIX_CTRL_CHECKABLE);
-    lv_btnmatrix_set_one_check(btnm, true);
+    lv_btnmatrix_set_btn_ctrl_all(btnm,  LV_BTNMATRIX_CTRL_CHECKABLE);
 
-    lv_style_init(&style_btnm);
-    lv_style_set_text_color(&style_btnm, LV_STATE_DEFAULT, LV_COLOR_TEAL);
-    lv_style_set_text_font(&style_btnm, LV_STATE_DEFAULT, &calibri_20); //&lv_font_montserrat_16);
-    //lv_obj_reset_style_list(btnm, LV_BTN_PART_MAIN);         /*Remove the styles coming from the theme*/
     lv_obj_add_style(btnm, LV_BTN_PART_MAIN, &style_btnm);
-
     lv_obj_align(btnm, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
     lv_obj_set_event_cb(btnm, btn_matrix_event_handler);
 }
@@ -93,6 +181,7 @@ void display_entrypoint(void)
         return;
     }
 
+    style_init();
     display_blanking_off(display_dev);
     create_btn_matrix();
     LOG_INF("Display %s initialized\n", CONFIG_LVGL_DISPLAY_DEV_NAME);
@@ -104,11 +193,20 @@ void display_entrypoint(void)
     bool refresh;
     uint8_t buffer[150];
     int16_t data[3];
+    int rec_i = 0;
+    const int rec_buf_size = 4500;
+    int16_t rec_buf[rec_buf_size];
 
     while (1) {
         refresh = false;
         recv_msg.size = 150;
         recv_msg.rx_source_thread = K_ANY;
+
+        if (recording == true && recording_ready == false) {
+             recording_ready = true;
+             memset(rec_buf, 0, rec_buf_size); 
+             rec_i = 0;
+        }
 
         if (0 == k_mbox_get(&data_mailbox, &recv_msg, NULL, K_NO_WAIT)) {
             k_mbox_data_get(&recv_msg, buffer);
@@ -125,8 +223,29 @@ void display_entrypoint(void)
                     refresh = true;
                 }
                 chart_update(&acc_chart, data, refresh);
+                if (recording_ready) {
+                    rec_buf[rec_i++] = data[0];
+                    rec_buf[rec_i++] = data[1];
+                    rec_buf[rec_i++] = data[2];
+                    if (rec_i > 74) {
+                        recording_done = true;
+                        LOG_INF("recording_done\n");
+                    }
+                }
             }
+            
         }
+
+       if (recording && recording_done) {
+            recording = false;
+            recording_done = false;
+            recording_ready = false;
+            LOG_INF("Writing to SD..\n");
+            //if (!write_to_sd(label, rec_buf, rec_buf_size)) {
+            if (!write_to_sd(label, rec_buf, 75)) {
+                LOG_ERR("Data write failed for %s!\n", label);
+            }
+       }
 
         lv_task_handler();
         k_sleep(K_MSEC(5));
@@ -135,8 +254,14 @@ void display_entrypoint(void)
 
 void display_init() 
 {
+    k_sleep(K_MSEC(1000));
+
+    if (!sd_init()) {
+        show_err_mbox("Insert SD card and Reset!");
+    }
+
     LOG_INF("Display initialized\n");
 }
 
 // display thread
-K_THREAD_DEFINE(display_thread, 4096, display_entrypoint, NULL, NULL, NULL, 7, 0, 0);
+K_THREAD_DEFINE(display_thread, 12288, display_entrypoint, NULL, NULL, NULL, 7, 0, 0);

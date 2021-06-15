@@ -9,7 +9,6 @@
 #include <device.h>
 #include <drivers/display.h>
 #include <lvgl.h>
-#include <stdio.h>
 #include <string.h>
 
 void display_init();

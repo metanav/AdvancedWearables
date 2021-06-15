@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <disk/disk_access.h>
+#include <fs/fs.h>
+#include <ff.h>
 #include "sd.h"
 
 #define LOG_LEVEL CONFIG_LOG_DEFAULT_LEVEL
@@ -9,7 +13,8 @@ LOG_MODULE_REGISTER(sd);
 *  in ffconf.h
 */
 static const char *disk_mount_pt = "/SD:";
-
+static long int counter;
+static const char counter_file[] = "/SD:/counter.txt";
 static FATFS fat_fs;
 
 /* mounting info */
@@ -18,9 +23,11 @@ static struct fs_mount_t mp = {
     .fs_data = &fat_fs,
 };
 
+
+
 static int lsdir(const char *path);
 
-void sd_init()
+bool sd_init()
 {
     do { 
         static const char *disk_pdrv = "SD";
@@ -29,21 +36,21 @@ void sd_init()
         uint32_t block_size;
     
         if (disk_access_init(disk_pdrv) != 0) {
-            printk("Storage init ERROR!");
-            break;
+            LOG_ERR("Storage init ERROR!");
+            return false;
         }
     
         if (disk_access_ioctl(disk_pdrv,
                 DISK_IOCTL_GET_SECTOR_COUNT, &block_count)) {
-            printk("Unable to get sector count");
-            break;
+            LOG_ERR("Unable to get sector count");
+            return false;
         }
 
         LOG_INF("Block count %u", block_count);
     
         if (disk_access_ioctl(disk_pdrv, DISK_IOCTL_GET_SECTOR_SIZE, &block_size)) {
             LOG_ERR("Unable to get sector size");
-            break;
+            return false;
         }
 
         LOG_INF("Sector size %u\n", block_size);
@@ -59,31 +66,100 @@ void sd_init()
     if (res == FR_OK) {
         LOG_INF("Disk mounted.\n");
         lsdir(disk_mount_pt);
+
+        struct fs_file_t fp;
+        
+        // check if file exists
+        int ret = fs_open(&fp, counter_file, 0);
+        if (ret == 0) {
+            fs_close(&fp);
+        } 
+        if (ret == -2) {
+            LOG_INF("File does not exist, creating new one!\n");
+            ret = fs_open(&fp, counter_file, FS_O_CREATE | FS_O_WRITE);
+            if (ret == 0) {
+                char buf[2] = "0";
+                fs_write(&fp, &buf, 2);
+                fs_close(&fp);
+                LOG_INF("Write 0 to the file\n");
+            }
+        }
+ 
+        ret = fs_open(&fp, counter_file, FS_O_READ);
+        
+        if (ret == 0) {
+            char buf[5];
+            fs_read(&fp, buf, 5);
+            fs_close(&fp);
+            sscanf(buf, "%ld", &counter);
+            LOG_INF("counter=%ld\n", counter);
+        } else {
+            LOG_ERR("counter could not be initialized\n");
+            return false;
+        }
     } else {
         LOG_ERR("Error mounting disk.\n");
+        return false;
     }
+
+    return true;
 }
 
 
-void write_to_sd(char *buf, size_t bufsize)
+bool write_to_sd(const char *label, int16_t *buf, size_t bufsize)
 {
     struct fs_file_t fp;
+    char datafile[25];
 
-    int ret = fs_open(&fp, "/SD:/new.txt", FS_O_CREATE | FS_O_WRITE);
+    // convert first space to underscore
+    char *ptr = strchr(label, ' ');
+    if (ptr!=NULL) {
+        ptr[0] = '_';
+    }
+
+    counter += 1;
+    
+    sprintf(datafile, "/SD:/%s.%ld.csv", label, counter); 
+    LOG_INF("counter=%ld, datafile: %s\n", counter, datafile);
+
+    int ret = fs_open(&fp, datafile, FS_O_CREATE | FS_O_WRITE);
 
     if (ret != 0) {
         LOG_ERR("Failed to open file: %d\n", ret);
-        return;
+        return false;
     }
     
-    ret = fs_write(&fp, buf, bufsize);
+    LOG_ERR("Start writing to %s\n", datafile);
+    
+    for (int i=0; i<bufsize; i += 3) {
+        char line[20];
+        ssize_t bufsz = snprintf(line, 20,  "%d,%d,%d\n", buf[i], buf[i+1], buf[i+2]);
+        
+        //LOG_INF("line=%s", line);
 
-    if (ret < 0) {
-        LOG_ERR("Failed to write: %d\n", ret);
-        return;
+        ret = fs_write(&fp, line, bufsz+1);
+
+        if (ret < 0) {
+            LOG_ERR("Failed to write: %d\n", ret);
+            return false;
+        }
     }
-
+ 
     fs_close(&fp);
+
+    ret = fs_open(&fp, counter_file, FS_O_WRITE);
+    if (ret == 0) {
+        char buf[5];
+        ssize_t bufsz = snprintf(buf, 5, "%ld", counter);
+        fs_write(&fp, buf, bufsz+1);
+        fs_close(&fp);
+        LOG_INF("counter=%ld written to the file\n", counter);
+    } 
+    fs_close(&fp);
+    
+    LOG_INF("Data written to %s\n", datafile);
+
+    return true;
 }
 
 static int lsdir(const char *path)
