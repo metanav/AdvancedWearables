@@ -12,6 +12,7 @@
 #include <string.h>
 
 void display_init();
+void display_entrypoint(void);
 
 #endif //__DISPLAY_H
 

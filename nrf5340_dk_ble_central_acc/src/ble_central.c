@@ -1,4 +1,16 @@
+#include <zephyr.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/conn.h>
+#include <bluetooth/uuid.h>
+#include <bluetooth/gatt.h>
+#include <sys/byteorder.h>
+
 #include "ble_central.h"
+#include "message.h"
 
 #define ACC_SERVICE_UUID 0xd4, 0x86, 0x48, 0x24, 0x54, 0xB3, 0x43, 0xA1, \
                      0xBC, 0x20, 0x97, 0x8F, 0xC3, 0x76, 0xC2, 0x75
@@ -15,6 +27,8 @@ LOG_MODULE_REGISTER(ble_central);
 
 extern struct k_mbox data_mailbox;
 
+extern struct k_mbox notification_mailbox;
+
 static struct bt_conn *default_conn;
 static struct bt_uuid_128 uuid = BT_UUID_INIT_128(0);
 static struct bt_gatt_discover_params discover_params;
@@ -23,13 +37,32 @@ static struct bt_gatt_exchange_params exchange_params;
 
 static void start_scan();
 
+
+static void send_notification(enum noti_message msg)
+{
+    // send code using .info
+    struct k_mbox_msg noti_msg = {
+        .size = 0,
+        .info = msg,
+        .tx_data = NULL,
+        .tx_block.data = NULL,
+        .tx_target_thread = K_ANY
+    };
+    k_mbox_async_put(&notification_mailbox, &noti_msg, NULL);
+}
+
 static uint8_t notify_func(struct bt_conn *conn,
                struct bt_gatt_subscribe_params *params,
                const void *payload, uint16_t length)
 {
     if (!payload) {
-        LOG_INF("[UNSUBSCRIBED]\n");
         params->value_handle = 0U;
+
+        enum noti_message msg = BLE_PERIPHERAL_UNSUBSCRIBED;
+        send_notification(msg);
+
+        LOG_INF("[UNSUBSCRIBED]\n");
+
         return BT_GATT_ITER_STOP;
     }
 
@@ -41,14 +74,14 @@ static uint8_t notify_func(struct bt_conn *conn,
         uint16_t code = data[0] | (data[1] << 8);
         LOG_ERR("Error: %d\n", code);
     } else { 
-        struct k_mbox_msg send_msg = {
+        struct k_mbox_msg data_msg = {
             .size = length,
             .tx_data = data,
             .tx_block.data = NULL,
             .tx_target_thread = K_ANY
         };
 
-        k_mbox_async_put(&data_mailbox, &send_msg, NULL);
+        k_mbox_async_put(&data_mailbox, &data_msg, NULL);
     }
 
     return BT_GATT_ITER_CONTINUE;
@@ -187,6 +220,8 @@ static void start_scan()
     }
 
     LOG_INF("Scanning successfully started\n");
+    enum noti_message msg = BLE_PERIPHERAL_SCANNING;
+    send_notification(msg);
 }
 
 static void connected(struct bt_conn *conn, uint8_t conn_err)
@@ -207,6 +242,8 @@ static void connected(struct bt_conn *conn, uint8_t conn_err)
     }
 
     LOG_INF("Connected: %s\n", addr);
+    enum noti_message msg = BLE_PERIPHERAL_CONNECTED;
+    send_notification(msg);
 
     if (conn == default_conn) {
         memcpy(&uuid, BT_UUID_ACC_SERVICE, sizeof(uuid));
@@ -257,6 +294,8 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
 
     LOG_INF("Disconnected: %s (reason 0x%02x)\n", addr, reason);
+    enum noti_message msg = BLE_PERIPHERAL_DISCONNECTED;
+    send_notification(msg);
 
     if (default_conn != conn) {
         return;

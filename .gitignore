@@ -51,3 +51,5 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+config.ini
+formatted_data/
