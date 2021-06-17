@@ -79,7 +79,7 @@ bool sd_init()
             ret = fs_open(&fp, counter_file, FS_O_CREATE | FS_O_WRITE);
             if (ret == 0) {
                 char buf[2] = "0";
-                fs_write(&fp, &buf, 2);
+                fs_write(&fp, &buf, 1);
                 fs_close(&fp);
                 LOG_INF("Write 0 to the file\n");
             }
@@ -137,7 +137,7 @@ bool write_to_sd(const char *label, int16_t *buf, size_t bufsize)
         
         //LOG_INF("line=%s", line);
 
-        ret = fs_write(&fp, line, bufsz+1);
+        ret = fs_write(&fp, line, bufsz);
 
         if (ret < 0) {
             LOG_ERR("Failed to write: %d\n", ret);
@@ -151,7 +151,7 @@ bool write_to_sd(const char *label, int16_t *buf, size_t bufsize)
     if (ret == 0) {
         char buf[5];
         ssize_t bufsz = snprintf(buf, 5, "%ld", counter);
-        fs_write(&fp, buf, bufsz+1);
+        fs_write(&fp, buf, bufsz);
         fs_close(&fp);
         LOG_INF("counter=%ld written to the file\n", counter);
     } 

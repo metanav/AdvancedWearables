@@ -344,12 +344,14 @@ void display_entrypoint(void)
             recording = false;
             recording_done = false;
             recording_ready = false;
+
             LOG_INF("Writing to SD..\n");
-            //if (!write_to_sd(class_label, rec_buf, rec_buf_size)) {
-            if (!write_to_sd(class_label, rec_buf, 75)) {
-                LOG_ERR("Data write failed for %s!\n", class_label);
+
+            if (!write_to_sd(class_label, rec_buf, rec_buf_size)) {
+                lv_label_set_text(status_label, "Write to SD card failed.");
+            } else {
+                lv_label_set_text(status_label, "Data saved to SD card.");
             }
-            lv_label_set_text(status_label, "Data saved to SD card.");
        }
 
         lv_task_handler();
