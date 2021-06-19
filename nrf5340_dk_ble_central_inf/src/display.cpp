@@ -95,7 +95,7 @@ static void create_label()
 static void create_recognition_label()
 {
     recognition_label = lv_label_create(lv_scr_act(), NULL);
-    lv_label_set_text(recognition_label, "My Dream Machine");
+    lv_label_set_text(recognition_label, "Please wait for data.");
     lv_obj_align(recognition_label, NULL, LV_ALIGN_CENTER, 0, -50);
     lv_obj_add_style(recognition_label, LV_BTN_PART_MAIN, &style_recognition_label);
 }

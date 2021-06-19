@@ -16,7 +16,8 @@ dir = 'raw_data'
 for filename in os.listdir(dir):
     if filename.endswith('.csv'):
         prefix, ext = os.path.splitext(filename)
-        outfilename = os.path.join('formatted_data', '{}.json'.format(prefix))
+        outfilename = os.path.join('formatted_data', '{}.json'
+                         .format(prefix))
 
         values = []
         with open(os.path.join(dir, filename)) as fp:
@@ -48,7 +49,9 @@ for filename in os.listdir(dir):
                 encoded = json.dumps(data)
 
                 # sign message
-                signature = hmac.new(bytes(HMAC_KEY, 'utf-8'), msg = encoded.encode('utf-8'), digestmod = hashlib.sha256).hexdigest()
+                signature = hmac.new(bytes(HMAC_KEY, 'utf-8'),
+                                     msg = encoded.encode('utf-8'), 
+                                     digestmod = hashlib.sha256).hexdigest()
 
                 # set the signature again in the message, and encode again
                 data['signature'] = signature

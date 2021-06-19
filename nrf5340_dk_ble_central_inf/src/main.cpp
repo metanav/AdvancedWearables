@@ -16,6 +16,7 @@ K_MBOX_DEFINE(data_mailbox);
 void main(void)
 {
     ble_central_init();
+    // the edge impulse inferencing code is in the display.cpp file
     display_init();
 
     while (1) {
@@ -24,8 +25,6 @@ void main(void)
 }
 
 /* display thread
- * stack size = 12288 to hold thread variables 
- * and 9K fatfs write buffer for 60 seconds of 
- * 25Hz 3-axis accelerometer data
+ * stack size = 8192 to hold thread variables 
  */
-K_THREAD_DEFINE(display_thread, 12288, display_entrypoint, NULL, NULL, NULL, 7, 0, 0);
+K_THREAD_DEFINE(display_thread, 8192, display_entrypoint, NULL, NULL, NULL, 7, 0, 0);
